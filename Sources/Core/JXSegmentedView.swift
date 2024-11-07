@@ -103,7 +103,7 @@ public protocol JXSegmentedViewDelegate: AnyObject {
     /// - Parameters:
     ///   - segmentedView: JXSegmentedView
     ///   - index: 选中的index
-    func segmentedView(_ segmentedView: JXSegmentedView, didSelectedItemAt index: Int)
+    func segmentedView(_ segmentedView: JXSegmentedView, didSelectedItemAt index: Int, selPoint: CGPoint)
 
     /// 点击选中的情况才会调用该方法
     ///
@@ -139,7 +139,7 @@ public protocol JXSegmentedViewDelegate: AnyObject {
 
 /// 提供JXSegmentedViewDelegate的默认实现，这样对于遵从JXSegmentedViewDelegate的类来说，所有代理方法都是可选实现的。
 public extension JXSegmentedViewDelegate {
-    func segmentedView(_ segmentedView: JXSegmentedView, didSelectedItemAt index: Int) { }
+    func segmentedView(_ segmentedView: JXSegmentedView, didSelectedItemAt index: Int, selPoint: CGPoint) { }
     func segmentedView(_ segmentedView: JXSegmentedView, didClickSelectedItemAt index: Int) { }
     func segmentedView(_ segmentedView: JXSegmentedView, didScrollSelectedItemAt index: Int) { }
     func segmentedView(_ segmentedView: JXSegmentedView, scrollingFrom leftIndex: Int, to rightIndex: Int, percent: CGFloat) { }
@@ -412,8 +412,8 @@ open class JXSegmentedView: UIView, JXSegmentedViewRTLCompatible {
     /// 如果要同时触发列表容器对应index的列表加载，请再调用`listContainerView.didClickSelectedItem(at: index)`方法
     ///
     /// - Parameter index: 目标index
-    open func selectItemAt(index: Int) {
-        selectItemAt(index: index, selectedType: .code)
+    open func selectItemAt(index: Int , selPoint: CGPoint = .zero) {
+        selectItemAt(index: index, selectedType: .code , selPoint: selPoint)
     }
 
     //MARK: - KVO
@@ -510,18 +510,18 @@ open class JXSegmentedView: UIView, JXSegmentedViewRTLCompatible {
     }
 
     //MARK: - Private
-    private func clickSelectItemAt(index: Int) {
+    private func clickSelectItemAt(index: Int, selPoint: CGPoint = .zero) {
         guard delegate?.segmentedView(self, canClickItemAt: index) != false else {
             return
         }
-        selectItemAt(index: index, selectedType: .click)
+        selectItemAt(index: index, selectedType: .click , selPoint: selPoint)
     }
 
     private func scrollSelectItemAt(index: Int) {
         selectItemAt(index: index, selectedType: .scroll)
     }
 
-    private func selectItemAt(index: Int, selectedType: JXSegmentedViewItemSelectedType) {
+    private func selectItemAt(index: Int, selectedType: JXSegmentedViewItemSelectedType ,  selPoint: CGPoint = .zero) {
         guard index >= 0 && index < itemDataSource.count else {
             return
         }
@@ -535,7 +535,7 @@ open class JXSegmentedView: UIView, JXSegmentedViewRTLCompatible {
             }else if selectedType == .scroll {
                 delegate?.segmentedView(self, didScrollSelectedItemAt: index)
             }
-            delegate?.segmentedView(self, didSelectedItemAt: index)
+            delegate?.segmentedView(self, didSelectedItemAt: index, selPoint: selPoint)
             scrollingTargetIndex = -1
             return
         }
@@ -605,7 +605,7 @@ open class JXSegmentedView: UIView, JXSegmentedViewRTLCompatible {
         }else if selectedType == .scroll {
             delegate?.segmentedView(self, didScrollSelectedItemAt: index)
         }
-        delegate?.segmentedView(self, didSelectedItemAt: index)
+        delegate?.segmentedView(self, didSelectedItemAt: index, selPoint: selPoint)
     }
 
     private func getItemFrameAt(index: Int) -> CGRect {
@@ -737,6 +737,12 @@ extension JXSegmentedView{
 
 extension JXSegmentedView: UICollectionViewDelegate {
     public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+
+        // 获取当前选中 item 的 cell
+        guard let cell = collectionView.cellForItem(at: indexPath) else { return }
+           // 计算箭头的新位置
+        let cellFrameInSuperview = collectionView.convert(cell.frame, to: UIApplication.shared.keyWindow)
+
         var isTransitionAnimating = false
         for itemModel in itemDataSource {
             if itemModel.isTransitionAnimating {
@@ -746,7 +752,7 @@ extension JXSegmentedView: UICollectionViewDelegate {
         }
         if !isTransitionAnimating {
             //当前没有正在过渡的item，才允许点击选中
-            clickSelectItemAt(index: indexPath.item)
+            clickSelectItemAt(index: indexPath.item , selPoint: cellFrameInSuperview.origin)
         }
     }
 }
